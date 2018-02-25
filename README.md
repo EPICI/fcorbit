@@ -43,3 +43,5 @@ Leaving out the rotation makes it assumed to be 0. Leaving out the height makes 
 Type names have aliases so you don't need to worry too much about remembering the exact name, except for CW meaning clockwise and CCW meaning counterclockwise.
 
 Commas, brackets, and other stuff that was previously necessary is now completely ignored by the parser. It can be considered syntactic salt.
+
+Design pieces have indices and optionally joints. Indices count from 0 and are uniquely assigned. Joints say which other pieces a piece is connected to. The list is one way - you reference the lower indexed piece from the higher indexed piece, the game infers the opposite direction. In this example, piece #1, the goal circle, is connected to piece #0, the goal rectangle, and it is implied that it is the center that connects. For rods, if both sides are plausible, the left side of the higher indexed piece breaks the tie. Other nuances of jointing aren't really researched since it's really up to the game.

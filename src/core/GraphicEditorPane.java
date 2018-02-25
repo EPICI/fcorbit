@@ -37,9 +37,10 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	public static final Color[] WOOD_ROD = {Color.decode("#6a3502"),Color.decode("#b55a04")};
 	public static final Color[] STATIC_OBJECT = {Color.decode("#007f09"),Color.decode("#01be02")};
 	
-	public static final double SCALE_RATE = -1d/64;
+	public static final double SCALE_RATE = -1d/8;
 	public static final double SCALE_MIN = -3;
 	public static final double SCALE_MAX = 3;
+	public static final double PAN_RATE = 32;
 	public static final double ANCHORX_MAX = 1000;
 	public static final double ANCHORY_MAX = 725;
 	
@@ -142,7 +143,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 		level.translate(cx, cy);
 		level.scale(scale, scale);
 		level.translate(anchorx, anchory);
-		int leveln = -3;
+		int leveln = -2;
 		// Sort objects
 		objDoc.sort(FCObj.Z_COMPARE);
 		// Background
@@ -400,7 +401,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				// Pan view
 				int x = e.getX();
 				int y = e.getY();
-				panned(x-lastMousex,y-lastMousey);
+				panned(lastMousex-x,lastMousey-y);
 				break;
 			}
 			}
@@ -416,6 +417,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 			if(keys.get(KeyEvent.VK_ALT)){// Pan
 				// Hold shift to pan x instead of y
 				boolean usex = keys.get(KeyEvent.VK_SHIFT);
+				by *= PAN_RATE;
 				if(usex){
 					panned(by,0);
 				}else{

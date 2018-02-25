@@ -158,11 +158,11 @@ public class FCObj {
 	}
 	
 	/**
-	 * For level pieces, is in [-3,-1] and determines render order
+	 * For level pieces, is in [-2,-1] and determines render order
 	 * <br>
 	 * For design pieces, is 0 or higher, is index as well
 	 */
-	public int z=-2;
+	public int z=-1;
 	/**
 	 * Base type (name)
 	 */
@@ -215,8 +215,8 @@ public class FCObj {
 			type = typeBits[0];
 			if(!nameToType.containsKey(type))throw new IllegalArgumentException(text+"\nFC object type \""+type+"\" not recognized");
 			int typeData = nameToType.get(type);
-			if(Bits.readBit(typeData, TYPE_UNROTATABLE))z=-3;
-			if(Bits.readBit(typeData, TYPE_DESIGN))z=-1;
+			if(Bits.readBit(typeData, TYPE_UNROTATABLE))z=-2;
+			if(Bits.readBit(typeData, TYPE_DESIGN))z=0;
 			if(typeBits.length==2){
 				if(!Bits.readBit(typeData,TYPE_DESIGN))throw new IllegalArgumentException(text+"\nOnly designs can have an index");
 				z = Integer.parseInt(typeBits[1]);
