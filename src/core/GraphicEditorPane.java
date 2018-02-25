@@ -36,6 +36,9 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	public static final Color[] CCW_WHEEL = {Color.decode("#ce49a3"),Color.decode("#ffcfce")};
 	public static final Color[] WOOD_ROD = {Color.decode("#6a3502"),Color.decode("#b55a04")};
 	public static final Color[] STATIC_OBJECT = {Color.decode("#007f09"),Color.decode("#01be02")};
+	public static final Color SELECTED_OVERLAY = Color.decode("#bbbbbb");
+	public static final Color SELECTED_OVERLAY_FIRST = Color.decode("#dddddd");
+	public static final float OVERLAY_ALPHA = 0.5f;
 	
 	public static final double SCALE_RATE = -1d/8;
 	public static final double SCALE_MIN = -3;
@@ -138,14 +141,25 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 		RenderLayer design = new RenderLayer(3,width,height);
 		design.translate(cx, cy);
 		design.scale(scale, scale);
-		design.translate(anchorx, anchory);
+		design.translate(-anchorx, -anchory);
 		RenderLayer level = new RenderLayer(2,width,height);
 		level.translate(cx, cy);
 		level.scale(scale, scale);
-		level.translate(anchorx, anchory);
+		level.translate(-anchorx, -anchory);
+		RenderLayer overlays = new RenderLayer(1,width,height);
+		overlays.translate(cx, cy);
+		overlays.scale(scale, scale);
+		overlays.translate(-anchorx, -anchory);
 		int leveln = -2;
 		// Sort objects
 		objDoc.sort(FCObj.Z_COMPARE);
+		// Grab selection
+		HashMap<FCObj,Integer> selectedIndex = new HashMap<>();
+		int i=0;
+		for(FCObj obj:objSel){
+			selectedIndex.put(obj, i);
+			i++;
+		}
 		// Background
 		g.setColor(BACKGROUND);
 		g.fillRect(0, 0, width, height);
@@ -155,6 +169,10 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 			int z = obj.z;
 			double x = obj.x, y = obj.y, w = obj.w, h = obj.h, r = obj.r;
 			int typeData = FCObj.nameToType.get(obj.type);
+			Integer osel = selectedIndex.get(obj);
+			boolean isselected = osel!=null;
+			int sel = isselected?osel:-1;
+			boolean isselectedfirst = sel==0;
 			boolean isdesign = Bits.readBit(typeData, FCObj.TYPE_DESIGN);
 			boolean iscircle = Bits.readBit(typeData, FCObj.TYPE_CIRCLE);
 			boolean isgoal = Bits.readBit(typeData, FCObj.TYPE_GOAL);
@@ -176,7 +194,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 					level = new RenderLayer(2,width,height);
 					level.translate(cx, cy);
 					level.scale(scale, scale);
-					level.translate(anchorx, anchory);
+					level.translate(-anchorx, -anchory);
 				}
 				target = level;
 			}
@@ -219,6 +237,14 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				ig.setColor(colFill);
 				ig.fill(new Ellipse2D.Double(iw*-0.5, ih*-0.5, iw, ih));
 				ig.setTransform(ot);
+				if(isselected){
+					ig = overlays.graphics[0];
+					ig.translate(x, y);
+					ig.rotate(Math.toRadians(r));
+					ig.setColor(isselectedfirst?SELECTED_OVERLAY_FIRST:SELECTED_OVERLAY);
+					ig.fill(new Ellipse2D.Double(ow*-0.5, oh*-0.5, ow, oh));
+					ig.setTransform(ot);
+				}
 			}else{// Rectangle or rod
 				double ow,oh;
 				if(isrod){
@@ -265,10 +291,20 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				ig.setColor(colFill);
 				ig.fill(new Rectangle2D.Double(iw*-0.5, ih*-0.5, iw, ih));
 				ig.setTransform(ot);
+				if(isselected){
+					ig = overlays.graphics[0];
+					ig.translate(x, y);
+					ig.rotate(Math.toRadians(r));
+					ig.setColor(isselectedfirst?SELECTED_OVERLAY_FIRST:SELECTED_OVERLAY);
+					ig.fill(new RoundRectangle2D.Double(ow*-0.5, oh*-0.5, ow, oh, Math.PI/2, ROUND_RADIUS));
+					ig.setTransform(ot);
+				}
 			}
 		}
 		level.renderTo(g);
 		design.renderTo(g);
+		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, OVERLAY_ALPHA));
+		overlays.renderTo(g);
 	}
 	
 	public static void drawJoint(Graphics2D g,double x,double y){
@@ -283,7 +319,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 		g.fill(area);
 	}
 	
-	public void scrolled(double amount){
+	public void scaled(double amount){
 		double newLogScale = Floats.median(SCALE_MIN, logScale+amount, SCALE_MAX);
 		if(logScale==newLogScale)return;
 		logScale = newLogScale;
@@ -292,8 +328,8 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	
 	public void panned(double byx,double byy){
 		double invScale = Math.pow(2, -logScale);
-		uanchorx -= byx*invScale;
-		uanchory -= byy*invScale;
+		uanchorx += byx*invScale;
+		uanchory += byy*invScale;
 		double newAnchorx = Floats.median(-ANCHORX_MAX, uanchorx, ANCHORX_MAX);
 		double newAnchory = Floats.median(-ANCHORY_MAX, uanchory, ANCHORY_MAX);
 		if(anchorx==newAnchorx&&anchory==newAnchory)return;
@@ -426,7 +462,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				uanchorx=anchorx;
 				uanchory=anchory;
 			}else{// Zoom
-				scrolled(by*SCALE_RATE);
+				scaled(by*SCALE_RATE);
 			}
 		}
 
@@ -440,6 +476,21 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 
 		@Override
 		public void keyReleased(KeyEvent e) {
+			switch(e.getKeyCode()){
+			case KeyEvent.VK_0:{
+				// 0 -> center the view
+				double tx=0,ty=0;
+				if(objSel.size()>0){// If object is selected, go to that object instead
+					FCObj obj = objSel.get(0);
+					tx=obj.x;
+					ty=obj.y;
+				}
+				anchorx=uanchorx=tx;
+				anchory=uanchory=ty;
+				repaint();
+				break;
+			}
+			}
 		}
 		
 	}
