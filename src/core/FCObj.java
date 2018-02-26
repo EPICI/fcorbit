@@ -195,15 +195,7 @@ public class FCObj {
 	 * @param source object to copy
 	 */
 	public FCObj(FCObj source){
-		if(source==null)throw new NullPointerException("Can't copy a null object");
-		z=source.z;
-		type=source.type;
-		x=source.x;
-		y=source.y;
-		w=source.w;
-		h=source.h;
-		r=source.r;
-		joints=new ArrayList<>(source.joints);
+		copyFrom(source);
 	}
 	
 	/**
@@ -249,6 +241,24 @@ public class FCObj {
 			throw new IllegalArgumentException("FC object format \""+format+"\" not known");
 		}
 		}
+	}
+	
+	/**
+	 * Copy method
+	 * 
+	 * @param source
+	 */
+	public void copyFrom(FCObj source){
+		if(source==null)throw new NullPointerException("Can't copy a null object");
+		z=source.z;
+		type=source.type;
+		x=source.x;
+		y=source.y;
+		w=source.w;
+		h=source.h;
+		r=source.r;
+		joints.clear();
+		joints.addAll(source.joints);
 	}
 	
 	public boolean equals(Object o){

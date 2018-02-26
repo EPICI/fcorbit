@@ -112,25 +112,25 @@ public class Main {
 	}
 	
 	public static void addListeners(){
-		addKeyTracker(graphicEditor);
-		addKeyTracker(textEditor);
+		addKeyTracker(graphicEditor,textEditor);
+		addKeyTracker(textEditor,graphicEditor);
 		addUndoTracker(textEditor);
 		addGraphicForwardListeners();
 		textDoc.addDocumentListener(new DocumentListener(){
 
 			@Override
 			public void insertUpdate(DocumentEvent e) {
-				updateObjDocumentFromText();
+				if(allowUpdateObjFromText())updateObjDocumentFromText();
 			}
 
 			@Override
 			public void removeUpdate(DocumentEvent e) {
-				updateObjDocumentFromText();
+				if(allowUpdateObjFromText())updateObjDocumentFromText();
 			}
 
 			@Override
 			public void changedUpdate(DocumentEvent e) {
-				updateObjDocumentFromText();
+				if(allowUpdateObjFromText())updateObjDocumentFromText();
 			}
 			
 		});
@@ -139,11 +139,20 @@ public class Main {
 
 			@Override
 			public void caretUpdate(CaretEvent e) {
-				updateObjSelectionFromText();
+				if(allowUpdateObjFromText())updateObjSelectionFromText();
 			}
 		
 		});
 		
+	}
+	
+	/**
+	 * Should we allow updating object from text?
+	 * 
+	 * @return
+	 */
+	public static boolean allowUpdateObjFromText(){
+		return textEditor.isFocusOwner();
 	}
 	
 	public static void addGraphicForwardListeners(){
@@ -257,6 +266,16 @@ public class Main {
 		String text = textEditor.getSelectedText();
 		objSel.clear();
 		parseTextTo(text,objSel,"fcml");
+		int sn = objSel.size();
+		// Ensure objects are same reference
+		HashMap<FCObj,FCObj> swap = new HashMap<>();
+		for(FCObj obj:objDoc){
+			swap.put(obj, obj);
+		}
+		for(int i=0;i<sn;i++){
+			FCObj obj = swap.get(objSel.get(i));
+			if(obj!=null)objSel.set(i, obj);
+		}
 		ticker++;
 		graphicEditor.setBackupSel();
 		graphicEditor.repaint();
@@ -283,6 +302,7 @@ public class Main {
 			sb.append('\n');
 		}
 		textEditor.setText(sb.toString());
+		ticker++;
 		textEditor.repaint();
 	}
 	
@@ -318,6 +338,7 @@ public class Main {
 				pos += line.length()+1;
 			}
 		}
+		ticker++;
 		textEditor.repaint();
 	}
 	
@@ -381,10 +402,13 @@ public class Main {
 	 * Add key tracker
 	 * 
 	 * @param comp
+	 * @param other what to pair with
 	 */
-	public static void addKeyTracker(JComponent comp){
+	public static void addKeyTracker(JComponent comp,JComponent other){
 		if(!(comp instanceof KeyTracker))throw new IllegalArgumentException("Does not implement the KeyTracker interface");
+		if(!(other instanceof KeyTracker))throw new IllegalArgumentException("Does not implement the KeyTracker interface");
 		KeyTracker kt = (KeyTracker) comp;
+		KeyTracker kto = (KeyTracker) other;
 		comp.addMouseListener(new MouseListener(){
 
 			@Override
@@ -403,11 +427,12 @@ public class Main {
 			public void mouseEntered(MouseEvent e) {
 				// Can't receive key events if not focused
 				e.getComponent().requestFocusInWindow();
+				// Only forget when switching between editors
+				kto.forget();
 			}
 
 			@Override
 			public void mouseExited(MouseEvent e) {
-				kt.forget();
 			}
 			
 		});

@@ -42,6 +42,9 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	public static final Color SELECTED_OVERLAY_FIRST = Color.decode("#dddddd");
 	public static final float OVERLAY_ALPHA = 0.5f;
 	public static final Color GRID = Color.decode("#444444");
+	public static final Color AXISX = Color.decode("#cc3333");
+	public static final Color AXISY = Color.decode("#33cc33");
+	public static final Color AXISXY = Color.decode("#aaaa44");
 	
 	public static final double SCALE_RATE = -1d/8;
 	public static final double SCALE_MIN = -3;
@@ -366,6 +369,13 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 		}
 	}
 	
+	public void drawCenteredString(Graphics2D g,String text,int x,int y){
+		FontMetrics metrics = g.getFontMetrics(g.getFont());
+	    x -= metrics.stringWidth(text)*0.5;
+	    y -= metrics.getHeight()*0.5 - metrics.getAscent();
+	    g.drawString(text, x, y);
+	}
+	
 	public double getScale(){
 		return Math.pow(2, logScale);
 	}
@@ -455,6 +465,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	public void setCommand(ActiveCommand replacement){
 		command.cancel();
 		command = replacement;
+		repaint();
 	}
 	
 	/**
@@ -588,7 +599,8 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 		
 		@Override
 		public void cancel(){
-			
+			restoreBackupSel();
+			repaint();
 		}
 		
 		@Override
@@ -623,8 +635,12 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 						for(FCObj obj:candidates){
 							// No shift -> select all
 							// Shift -> deselect all
-							objSel.remove(obj);
-							if(!shift)objSel.add(obj);
+							boolean oc = objSel.contains(obj);
+							if(!oc&&!shift){
+								objSel.add(obj);
+							}else if(oc&&shift){
+								objSel.remove(obj);
+							}
 						}
 						Main.updateTextSelectionFromObj();
 						repaint();
@@ -678,8 +694,12 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 					for(FCObj obj:candidates){
 						// No shift -> select all
 						// Shift -> deselect all
-						objSel.remove(obj);
-						if(!shift)objSel.add(obj);
+						boolean oc = objSel.contains(obj);
+						if(!oc&&!shift){
+							objSel.add(obj);
+						}else if(oc&&shift){
+							objSel.remove(obj);
+						}
 					}
 				}
 				repaint();
@@ -777,6 +797,25 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 					}
 					repaint();
 				}
+				break;
+			}
+			case KeyEvent.VK_X:{
+				// Delete selection
+				restoreBackupSel();
+				if(objSel.size()>0){
+					objDoc.removeAll(new HashSet<>(objSel));
+					objSel.clear();
+					Main.updateTextFromObj();
+					repaint();
+				}
+				break;
+			}
+			case KeyEvent.VK_G:{
+				// Translate selection
+				if(objSel.size()>0){
+					setCommand(new CommandTranslate());
+				}
+				break;
 			}
 			case KeyEvent.VK_SHIFT:{
 				repaint();
@@ -787,6 +826,217 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				break;
 			}
 			case KeyEvent.VK_ALT:{
+				repaint();
+				break;
+			}
+			}
+		}
+		
+	}
+	
+	/**
+	 * 
+	 * 
+	 * @author EPICI
+	 * @version 1.0
+	 */
+	public class CommandTranslate implements ActiveCommand{
+		
+		boolean done = false;
+		public IdentityHashMap<FCObj,FCObj> backupDoc;
+		int initialx = lastMousex;
+		int initialy = lastMousey;
+		
+		/**
+		 * Modify the translation direction
+		 * <br>
+		 * 0 is none, 1 is x local, 2 is x global,
+		 * -1 is y local, -2 is y global
+		 */
+		public int direction = 0;
+		
+		public CommandTranslate(){
+			backupDoc = new IdentityHashMap<>();
+			for(FCObj obj:objSel){
+				backupDoc.put(obj, new FCObj(obj));
+			}
+		}
+		
+		public void restoreBackupDoc(){
+			for(FCObj obj:objSel){
+				FCObj copy = backupDoc.get(obj);
+				obj.copyFrom(copy);
+			}
+		}
+		
+		public double[] getTranslation(int mx,int my){
+			final int direction = this.direction;
+			int dx = mx-initialx;
+			int dy = my-initialy;
+			final double invScale = getInvScale();
+			double wdx = dx*invScale;
+			double wdy = dy*invScale;
+			switch(direction){
+			case 1:{
+				final double r = Math.toRadians(objSel.get(0).r),
+						cr = Math.cos(r),
+						sr = Math.sin(r);
+				wdx = wdx*cr;
+				wdy = wdx*sr;
+				break;
+			}
+			case 2:{
+				wdy=0;
+				break;
+			}
+			case -1:{
+				final double r = Math.toRadians(objSel.get(0).r),
+						cr = Math.cos(r),
+						sr = Math.sin(r);
+				wdy = wdy*cr;
+				wdx = -wdy*sr;
+				break;
+			}
+			case -2:{
+				wdx=0;
+				break;
+			}
+			}
+			return new double[]{wdx,wdy};
+		}
+
+		@Override
+		public void cancel() {
+			if(!done)restoreBackupDoc();
+			repaint();
+		}
+
+		@Override
+		public void render(Graphics2D g) {
+			final double RAYLENGTH = 10000;
+			final double scale = getScale();
+			int width = getWidth(), height = getHeight();
+			double cx = width*0.5, cy = height*0.5;
+			AffineTransform ot = g.getTransform();
+			g.translate(cx, cy);
+			g.scale(scale, scale);
+			g.translate(-anchorx, -anchory);
+			FCObj first = objSel.get(0);
+			double ox = first.x;
+			double oy = first.y;
+			double[] wdxy = getTranslation(lastMousex,lastMousey);
+			double wdx = wdxy[0];
+			double wdy = wdxy[1];
+			if(direction==0){
+				g.setColor(AXISXY);
+				g.drawLine((int)(ox), (int)(oy), (int)(ox-wdx), (int)(oy-wdy));
+			}else{
+				g.setColor(direction>0?AXISX:AXISY);
+				double wdmul = RAYLENGTH/Math.hypot(wdx, wdy);
+				wdx *= wdmul;
+				wdy *= wdmul;
+				g.drawLine((int)(ox-wdx), (int)(oy-wdy), (int)(ox+wdx), (int)(oy+wdy));
+			}
+			g.setTransform(ot);
+		}
+
+		@Override
+		public void mouseClicked(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mousePressed(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseReleased(MouseEvent e) {
+			switch(mouseDown){
+			case 1:{
+				// Left click to confirm
+				done=true;
+				Main.updateTextFromObj();
+				cancelCommand();
+				break;
+			}
+			case 3:{
+				// Right click to cancel
+				cancelCommand();
+				break;
+			}
+			}
+		}
+
+		@Override
+		public void mouseEntered(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseExited(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseDragged(MouseEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void mouseMoved(MouseEvent e) {
+			// Do movement
+			restoreBackupDoc();
+			double[] wdxy = getTranslation(e.getX(),e.getY());
+			double wdx = wdxy[0];
+			double wdy = wdxy[1];
+			HashSet<FCObj> hashSel = new HashSet<>(objSel);
+			for(FCObj obj:objDoc){
+				if(hashSel.contains(obj)){
+					obj.x += wdx;
+					obj.y += wdy;
+				}
+			}
+			repaint();
+		}
+
+		@Override
+		public void mouseWheelMoved(MouseWheelEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void keyTyped(KeyEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void keyPressed(KeyEvent e) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void keyReleased(KeyEvent e) {
+			switch(e.getKeyCode()){
+			case KeyEvent.VK_ESCAPE:{
+				cancelCommand();
+				break;
+			}
+			case KeyEvent.VK_X:{
+				direction = direction>0?direction-1:2;
+				repaint();
+				break;
+			}
+			case KeyEvent.VK_Y:{
+				direction = direction<0?direction+1:-2;
 				repaint();
 				break;
 			}

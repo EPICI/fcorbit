@@ -59,7 +59,7 @@ public class TimedUndoManager extends UndoManager {
 			last.ends = newChain;
 		}
 		boolean result = super.addEdit(new SigEdit(anEdit,newChain,true));
-		if(useHook){
+		if(useHook&&Main.allowUpdateObjFromText()){
 			Main.updateObjFromText();
 		}
 		return result;
