@@ -146,12 +146,16 @@ public class Main {
 	}
 	
 	/**
+	 * If true, forces <i>allowUpdateObjFromText()</i> to return true
+	 */
+	public static boolean overrideUoft;
+	/**
 	 * Should we allow updating object from text?
 	 * 
 	 * @return
 	 */
 	public static boolean allowUpdateObjFromText(){
-		return textEditor.isFocusOwner();
+		return overrideUoft||textEditor.isFocusOwner();
 	}
 	
 	public static void addGraphicForwardListeners(){
