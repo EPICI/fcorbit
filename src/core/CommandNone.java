@@ -46,7 +46,7 @@ public class CommandNone implements ActiveCommand{
 	@Override
 	public void mouseReleased(MouseEvent e) {
 		switch(view.mouseDown){
-		case 3:{
+		case 1:{
 			// Select
 			boolean shift = view.keys.get(KeyEvent.VK_SHIFT);
 			view.restoreBackupSel();
@@ -106,7 +106,7 @@ public class CommandNone implements ActiveCommand{
 			view.panned(view.lastMousex-x,view.lastMousey-y);
 			break;
 		}
-		case 3:{
+		case 1:{
 			// Selection preview
 			view.restoreBackupSel();
 			boolean shift = view.keys.get(KeyEvent.VK_SHIFT);
