@@ -98,7 +98,6 @@ public class Main {
 		graphicEditor.objDoc = objDoc;
 		graphicEditor.objSel = objSel;
 		graphicEditor.setBackupSel();
-		textUndo.useHook = true;
 		textUndo.setLimit(100000);
 		textDoc.addUndoableEditListener(textUndo);
 		addListeners();
@@ -345,14 +344,12 @@ public class Main {
 	public static void tryUndo(){
 		if(textUndo.canUndo()){
 			textUndo.undo();
-			updateObjFromText();
 		}
 	}
 	
 	public static void tryRedo(){
 		if(textUndo.canRedo()){
 			textUndo.redo();
-			updateObjFromText();
 		}
 	}
 	

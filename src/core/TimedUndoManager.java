@@ -8,7 +8,6 @@ public class TimedUndoManager extends UndoManager {
 	public static final long WAIT_MS = 1000;
 	
 	public long timeLast = System.currentTimeMillis();
-	public boolean useHook;
 	
 	/**
 	 * Return how long it has been since the last call to this
@@ -59,9 +58,6 @@ public class TimedUndoManager extends UndoManager {
 			last.ends = newChain;
 		}
 		boolean result = super.addEdit(new SigEdit(anEdit,newChain,true));
-		if(useHook&&Main.allowUpdateObjFromText()){
-			Main.updateObjFromText();
-		}
 		return result;
 	}
 	
