@@ -126,6 +126,8 @@ public class FCObj {
 	}
 	
 	static{
+		// Add special
+		addNameTypeBits("Empty",0);
 		// Add nonstandard and standalone aliases first
 		addNameTypeBits("UnpowGoalCircle",0,TYPE_MOVABLE,TYPE_GOAL,TYPE_DESIGN,TYPE_JOINTABLE,TYPE_CIRCLE);
 		addNameTypeBits("CWGoalCircle",0,TYPE_MOVABLE,TYPE_GOAL,TYPE_DESIGN,TYPE_JOINTABLE,TYPE_CIRCLE,TYPE_POWERED,TYPE_CLOCKWISE);
@@ -155,6 +157,10 @@ public class FCObj {
 		addAlias("CCWGoalCircle","CG");
 		addAlias("WaterRod","BR","Water");
 		addAlias("WoodRod","WR","Wood");
+	}
+	
+	public int getTypeData(){
+		return nameToType.get(type);
 	}
 	
 	/**
@@ -268,6 +274,226 @@ public class FCObj {
 		r=r*p+(Double.doubleToLongBits(h)>>>32);
 		r=r*p+Math.floorMod(Math.round(r), 180);
 		return Long.hashCode(r);
+	}
+	
+	public String toString(){
+		return toString("fcml");
+	}
+	
+	/**
+	 * Export this object in a canonical format
+	 * 
+	 * @param format format type
+	 * @return
+	 */
+	public String toString(String format){
+		switch(format){
+		case "fcml":{
+			StringBuilder sb = new StringBuilder();
+			sb.append(type);
+			if(z>=0){
+				sb.append('#');
+				sb.append(z);
+			}
+			sb.append(" (");
+			sb.append(x);
+			sb.append(", ");
+			sb.append(y);
+			sb.append("), (");
+			sb.append(w);
+			sb.append(", ");
+			sb.append(h);
+			sb.append("), ");
+			sb.append(r);
+			int jn = joints.size();
+			if(jn>0){
+				sb.append(", [");
+				sb.append(joints.get(0));
+				for(int i=1;i<jn;i++){
+					sb.append(", ");
+					sb.append(joints.get(i));
+				}
+				sb.append(']');
+			}
+		}
+		default:{
+			throw new IllegalArgumentException("Unrecognized format \""+format+"\"");
+		}
+		}
+	}
+	
+	/**
+	 * Return coordinates of the corners
+	 * <br>
+	 * Even if it is not a rectangle, it is treated as such
+	 * 
+	 * @return
+	 */
+	public double[][] corners(){
+		final double x = this.x,
+				y = this.y,
+				rx = this.w*0.5,
+				ry = this.h*0.5,
+				r = Math.toRadians(this.r),
+				cr = Math.cos(r),
+				sr = Math.sin(r),
+				rcx = rx*cr,
+				rcy = ry*cr,
+				rsx = rx*sr,
+				rsy = ry*sr,
+				ix1 = rcx-rsy,
+				iy1 = rsx+rcy,
+				ix2 = rcx+rsy,
+				iy2 = rsx-rcy;
+		final double[][] result = {
+				{x+ix1,y+iy1},
+				{x+ix2,y+iy2},
+				{x-ix1,y-iy1},
+				{x-ix2,y-iy2}
+				};
+		return result;
+	}
+	
+	/**
+	 * Is it contained in this area?
+	 * <br>
+	 * Negative area is allowed
+	 * 
+	 * @param px
+	 * @param py
+	 * @return
+	 */
+	public boolean contains(double px,double py){
+		boolean iscircle = Bits.readBit(getTypeData(), TYPE_CIRCLE);
+		if(iscircle){
+			return Math.hypot(x-px, y-py)<=Math.abs(w*0.5);
+		}else{
+			final double x = this.x,
+					y = this.y,
+					rx = Math.abs(this.w*0.5),
+					ry = Math.abs(this.h*0.5),
+					r = -Math.toRadians(this.r),// Invert rotation
+					cr = Math.cos(r),
+					sr = Math.sin(r);
+			px -= x;
+			py -= y;
+			final double nx = px*cr-py*sr;
+			py = px*sr+py*cr;
+			px = nx;
+			return -rx<=px&&px<=rx && -ry<=py&&py<=ry;
+		}
+	}
+	
+	/**
+	 * Do these two objects' shapes intersect?
+	 * 
+	 * @param other
+	 * @return
+	 */
+	public boolean intersects(FCObj other){
+		boolean iscircle = Bits.readBit(getTypeData(), TYPE_CIRCLE);
+		boolean oiscircle = Bits.readBit(other.getTypeData(), TYPE_CIRCLE);
+		if(iscircle){
+			if(oiscircle){
+				return intersectsCC(other);
+			}else{
+				return other.intersectsRC(other);
+			}
+		}else{
+			if(oiscircle){
+				return intersectsRC(other);
+			}else{
+				return intersectsRR(other);
+			}
+		}
+	}
+	
+	/**
+	 * Like <i>intersects</i> but it assumes
+	 * they are both rectangles
+	 * 
+	 * @param other
+	 * @return
+	 */
+	public boolean intersectsRR(FCObj other){
+		return intersectsPP(corners(),other.corners());
+	}
+	
+	/**
+	 * Like <i>intersects</i> but it assumes
+	 * this is a rectangle and the other is a circle
+	 * 
+	 * @param other
+	 * @return
+	 */
+	public boolean intersectsRC(FCObj other){
+		double px = other.x,
+				py = other.y,
+				pr = Math.abs(other.w*0.5);
+		final double x = this.x,
+				y = this.y,
+				rx = Math.abs(this.w*0.5),
+				ry = Math.abs(this.h*0.5),
+				r = -Math.toRadians(this.r),// Invert rotation
+				cr = Math.cos(r),
+				sr = Math.sin(r);
+		px -= x;
+		py -= y;
+		final double nx = Math.abs(px*cr-py*sr);
+		py = Math.abs(px*sr+py*cr);
+		px = nx;
+		if(px>rx+pr||py>ry+pr)return false;
+		if(px<=rx||py<=ry)return true;
+		return Math.hypot(px-rx, py-ry)<=pr;
+	}
+	
+	/**
+	 * Like <i>intersects</i> but it assumes
+	 * they are both circles
+	 * 
+	 * @param other
+	 * @return
+	 */
+	public boolean intersectsCC(FCObj other){
+		return Math.hypot(x-other.x, y-other.y)<=Math.abs(w)+Math.abs(other.w);
+	}
+	
+	/**
+	 * With both polygons expressed as arrays of (x,y) arrays
+	 * in either clockwise or counterclockwise order, tests
+	 * for their intersection
+	 * 
+	 * @param a
+	 * @param b
+	 * @return
+	 */
+	public static boolean intersectsPP(double[][] a,double[][] b){
+		for(int i=0;i<2;i++){
+			double[][] poly = i==0?a:b;
+			int n = poly.length;
+			for(int i1=0;i1<n;i1++){
+				int i2=i1+1;
+				if(i2==n)i2=0;
+				double[] p1 = poly[i1];
+				double[] p2 = poly[i2];
+				double nx = p2[1]-p1[1];
+				double ny = p1[0]-p2[0];
+				double mina = Double.POSITIVE_INFINITY, maxa = Double.NEGATIVE_INFINITY;
+				for(double[] p:a){
+					double proj = nx*p[0]+ny*p[1];
+					mina = Math.min(mina, proj);
+					maxa = Math.max(maxa, proj);
+				}
+				double minb = Double.POSITIVE_INFINITY, maxb = Double.NEGATIVE_INFINITY;
+				for(double[] p:b){
+					double proj = nx*p[0]+ny*p[1];
+					minb = Math.min(minb, proj);
+					maxb = Math.max(maxb, proj);
+				}
+				if(maxa<minb||maxb<mina)return false;
+			}
+		}
+		return true;
 	}
 	
 }

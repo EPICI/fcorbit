@@ -14,7 +14,7 @@ FAQ
 ===
 Why can't I upload levels from within the editor?
 ---
-Fantastic Contraption has numerous historical artifacts, and one of those is security by obscurity. It uses plain HTTP requests for a lot of things, with very little validation. It doesn't even force authentication, so you can do stuff under other people's accounts and access their supposedly private data. If you could upload from within the editor, the means would be in the code, and we can't allow that - so until further notice, no upload button.
+Not in this version, not in the near future, but it may come in a later update.
 
 What is the language used by the text editor?
 ---

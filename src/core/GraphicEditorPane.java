@@ -22,6 +22,8 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	public static final double JOINT_RADIUS_OUTER = 4;
 	public static final double JOINT_RADIUS_INNER = 2;
 	
+	public static final Color TRANSPARENT = new Color(0,0,0,0);
+	public static final Color[] ATRANSPARENT = {TRANSPARENT,TRANSPARENT};
 	public static final Color BACKGROUND = Color.decode("#87bdf1");
 	public static final Color JOINT = Color.decode("#808080");
 	public static final Color JOINT_CENTER = Color.decode("#ffffff");
@@ -39,6 +41,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	public static final Color SELECTED_OVERLAY = Color.decode("#bbbbbb");
 	public static final Color SELECTED_OVERLAY_FIRST = Color.decode("#dddddd");
 	public static final float OVERLAY_ALPHA = 0.5f;
+	public static final Color GRID = Color.decode("#444444");
 	
 	public static final double SCALE_RATE = -1d/8;
 	public static final double SCALE_MIN = -3;
@@ -46,6 +49,8 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	public static final double PAN_RATE = 32;
 	public static final double ANCHORX_MAX = 1000;
 	public static final double ANCHORY_MAX = 725;
+	public static final int BOUNDX = 1000;
+	public static final int BOUNDY = 725;
 	
 	/**
 	 * Which keys are held down
@@ -96,8 +101,18 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	 */
 	public int lastMousey;
 	
+	/**
+	 * Show as wireframe?
+	 */
+	public boolean showWireframe;
+	/**
+	 * Show axes and grid?
+	 */
+	public boolean showGrid;
+	
 	public ArrayList<FCObj> objDoc;
 	public ArrayList<FCObj> objSel;
+	public ArrayList<FCObj> backupSel = new ArrayList<>();
 	
 	public ActiveCommand command = new CommandNone();
 	
@@ -134,9 +149,11 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 		int width = getWidth(), height = getHeight();
 		double cx = width*0.5, cy = height*0.5;
 		long tracker = Main.ticker;
-		double scale = Math.pow(2, logScale);
+		double scale = getScale();
 		double anchorx = this.anchorx;
 		double anchory = this.anchory;
+		boolean showWireframe = this.showWireframe;
+		boolean showGrid = this.showGrid;
 		// Make layers
 		RenderLayer design = new RenderLayer(3,width,height);
 		design.translate(cx, cy);
@@ -168,7 +185,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 			if(tracker!=Main.ticker)break;
 			int z = obj.z;
 			double x = obj.x, y = obj.y, w = obj.w, h = obj.h, r = obj.r;
-			int typeData = FCObj.nameToType.get(obj.type);
+			int typeData = obj.getTypeData();
 			Integer osel = selectedIndex.get(obj);
 			boolean isselected = osel!=null;
 			int sel = isselected?osel:-1;
@@ -208,7 +225,11 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				ig.translate(x, y);
 				ig.rotate(Math.toRadians(r));
 				ig.setColor(colOutline);
-				ig.fill(new Ellipse2D.Double(ow*-0.5, oh*-0.5, ow, oh));
+				if(showWireframe){
+					ig.draw(new Ellipse2D.Double(ow*-0.5, oh*-0.5, ow, oh));
+				}else{
+					ig.fill(new Ellipse2D.Double(ow*-0.5, oh*-0.5, ow, oh));
+				}
 				ig.setTransform(ot);
 				if(isjointable){
 					ig = target.graphics[2];
@@ -230,13 +251,15 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 					}
 					ig.setTransform(ot);
 				}
-				ig = target.graphics[1];
-				ot = ig.getTransform();
-				ig.translate(x, y);
-				ig.rotate(Math.toRadians(r));
-				ig.setColor(colFill);
-				ig.fill(new Ellipse2D.Double(iw*-0.5, ih*-0.5, iw, ih));
-				ig.setTransform(ot);
+				if(!showWireframe){
+					ig = target.graphics[1];
+					ot = ig.getTransform();
+					ig.translate(x, y);
+					ig.rotate(Math.toRadians(r));
+					ig.setColor(colFill);
+					ig.fill(new Ellipse2D.Double(iw*-0.5, ih*-0.5, iw, ih));
+					ig.setTransform(ot);
+				}
 				if(isselected){
 					ig = overlays.graphics[0];
 					ig.translate(x, y);
@@ -250,13 +273,13 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				if(isrod){
 					ow = w;
 					oh = h;
-					if(iswater)oh*=2;
+					if(iswater&&!showWireframe)oh*=2;
 					iw = Math.abs(ow-4);
 					ih = Math.abs(oh-4);
 				}else{
 					ow = Math.max(w, iw+2);
 					oh = Math.max(h, ih+2);
-					if(isstatic){
+					if(isstatic&&!showWireframe){
 						ow+=1;
 						oh+=1;
 						ig.translate(0.5, 0.5);
@@ -265,7 +288,11 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				ig.translate(x, y);
 				ig.rotate(Math.toRadians(r));
 				ig.setColor(colOutline);
-				ig.fill(new RoundRectangle2D.Double(ow*-0.5, oh*-0.5, ow, oh, Math.PI/2, ROUND_RADIUS));
+				if(showWireframe){
+					ig.draw(new Rectangle2D.Double(ow*-0.5, oh*-0.5, ow, oh));
+				}else{
+					ig.fill(new RoundRectangle2D.Double(ow*-0.5, oh*-0.5, ow, oh, Math.PI/2, ROUND_RADIUS));
+				}
 				ig.setTransform(ot);
 				if(isjointable){
 					ig = target.graphics[2];
@@ -284,13 +311,15 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 					}
 					ig.setTransform(ot);
 				}
-				ig = target.graphics[1];
-				ot = ig.getTransform();
-				ig.translate(x, y);
-				ig.rotate(Math.toRadians(r));
-				ig.setColor(colFill);
-				ig.fill(new Rectangle2D.Double(iw*-0.5, ih*-0.5, iw, ih));
-				ig.setTransform(ot);
+				if(!showWireframe){
+					ig = target.graphics[1];
+					ot = ig.getTransform();
+					ig.translate(x, y);
+					ig.rotate(Math.toRadians(r));
+					ig.setColor(colFill);
+					ig.fill(new Rectangle2D.Double(iw*-0.5, ih*-0.5, iw, ih));
+					ig.setTransform(ot);
+				}
 				if(isselected){
 					ig = overlays.graphics[0];
 					ig.translate(x, y);
@@ -301,22 +330,47 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				}
 			}
 		}
+		// Grid
+		if(showGrid){
+			Graphics2D ig = overlays.graphics[0];
+			ig.setColor(GRID);
+			ig.drawLine(-BOUNDX, -BOUNDY, BOUNDX, -BOUNDY);
+			ig.drawLine(-BOUNDX, 0, BOUNDX, 0);
+			ig.drawLine(-BOUNDX, BOUNDY, BOUNDX, BOUNDY);
+			ig.drawLine(-BOUNDX, -BOUNDY, -BOUNDX, BOUNDY);
+			ig.drawLine(0, -BOUNDY, 0, BOUNDY);
+			ig.drawLine(BOUNDX, -BOUNDY, BOUNDX, BOUNDY);
+		}
+		// Finally, render all
 		level.renderTo(g);
 		design.renderTo(g);
 		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, OVERLAY_ALPHA));
 		overlays.renderTo(g);
+		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
 	}
 	
-	public static void drawJoint(Graphics2D g,double x,double y){
+	public void drawJoint(Graphics2D g,double x,double y){
 		drawJoint(g,JOINT,x,y);
 	}
-	public static void drawJoint(Graphics2D g,Color color,double x,double y){
+	public void drawJoint(Graphics2D g,Color color,double x,double y){
 		final double jro = JOINT_RADIUS_OUTER;
 		final double jri = JOINT_RADIUS_INNER;
 		Area area = new Area(new Ellipse2D.Double(x-jro, y-jro, jro*2, jro*2));
-		area.subtract(new Area(new Ellipse2D.Double(x-jri, y-jri, jri*2, jri*2)));
 		g.setColor(color);
-		g.fill(area);
+		if(showWireframe){
+			g.draw(area);
+		}else{
+			area.subtract(new Area(new Ellipse2D.Double(x-jri, y-jri, jri*2, jri*2)));
+			g.fill(area);
+		}
+	}
+	
+	public double getScale(){
+		return Math.pow(2, logScale);
+	}
+	
+	public double getInvScale(){
+		return Math.pow(2, -logScale);
 	}
 	
 	public void scaled(double amount){
@@ -327,7 +381,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	}
 	
 	public void panned(double byx,double byy){
-		double invScale = Math.pow(2, -logScale);
+		double invScale = getInvScale();
 		uanchorx += byx*invScale;
 		uanchory += byy*invScale;
 		double newAnchorx = Floats.median(-ANCHORX_MAX, uanchorx, ANCHORX_MAX);
@@ -339,6 +393,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	}
 	
 	public static Color[] getColorsFor(int typeData){
+		if(typeData==0)return ATRANSPARENT;// Empty
 		if(Bits.readBit(typeData, FCObj.TYPE_DESIGN)){// Design
 			if(Bits.readBit(typeData, FCObj.TYPE_GOAL)){// Goal override
 				return GOAL_OBJECT;
@@ -393,8 +448,133 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 	 * Cancel whatever the current command is
 	 */
 	public void cancelCommand(){
+		setCommand(new CommandNone());
+	}
+	
+	public void setCommand(ActiveCommand replacement){
 		command.cancel();
-		command = new CommandNone();
+		command = replacement;
+	}
+	
+	/**
+	 * Modified distance comparator used by selection stuff so it's possible to select
+	 * objects which are hidden by other objects
+	 * 
+	 * @author EPICI
+	 * @version 1.0
+	 */
+	public static class ModDistance implements Mapping<FCObj,Double>{
+
+		final double px,py;
+		public ModDistance(double x,double y){
+			px=x;
+			py=y;
+		}
+		
+		@Override
+		public Double map(FCObj obj) {
+			int typeData = obj.getTypeData();
+			boolean iscircle = Bits.readBit(typeData, FCObj.TYPE_CIRCLE);
+			if(iscircle){
+				return Math.hypot(px-obj.x, py-obj.y)/Math.abs(obj.w*0.5);
+			}else{
+				double px = this.px, py = this.py;
+				final double x = obj.x,
+						y = obj.y,
+						rx = Math.abs(obj.w*0.5),
+						ry = Math.abs(obj.h*0.5),
+						r = -Math.toRadians(obj.r),// Invert rotation
+						cr = Math.cos(r),
+						sr = Math.sin(r);
+				px -= x;
+				py -= y;
+				final double nx = px*cr-py*sr;
+				py = px*sr+py*cr;
+				px = nx;
+				return Math.hypot(px/rx, py/ry);
+			}
+		}
+		
+	}
+	
+	public FCObj getSelectionPoint(){
+		return getSelectionPoint(lastMousex,lastMousey);
+	}
+	/**
+	 * Given the current mouse position, get the single
+	 * object that would be selected by a right click
+	 * 
+	 * @param mx
+	 * @param my
+	 * @return
+	 */
+	public FCObj getSelectionPoint(int mx,int my){
+		int width = getWidth(), height = getHeight();
+		double invScale = getInvScale();
+		final double wmx = (mx-width*0.5)*invScale+anchorx;
+		final double wmy = (my-height*0.5)*invScale+anchory;
+		return getSelectionPointWorld(wmx,wmy);
+	}
+	public FCObj getSelectionPointWorld(double wmx,double wmy){
+		ArrayList<FCObj> candidates = new ArrayList<>();
+		for(FCObj obj:objDoc){
+			if(obj.contains(wmx,wmy)){
+				candidates.add(obj);
+			}
+		}
+		if(candidates.isEmpty())return null;
+		Mapping.sort(candidates, new ModDistance(wmx,wmy), Comparator.<Double>naturalOrder());
+		return candidates.get(0);
+	}
+	
+	public ArrayList<FCObj> getSelectionArea(){
+		return getSelectionArea(lastMousex,lastMousey);
+	}
+	/**
+	 * Given the current mouse position, get the objects
+	 * that would be selected or deselected by a right click
+	 * 
+	 * @param mx
+	 * @param my
+	 * @return
+	 */
+	public ArrayList<FCObj> getSelectionArea(int mx,int my){
+		final int omx = originMousex, omy = originMousey;
+		return getSelectionArea(mx,my,omx,omy);
+	}
+	public ArrayList<FCObj> getSelectionArea(int mx,int my,int omx,int omy){
+		int width = getWidth(), height = getHeight();
+		double invScale = getInvScale();
+		final double wmx = (mx-width*0.5)*invScale+anchorx;
+		final double wmy = (my-height*0.5)*invScale+anchory;
+		final double womx = (omx-width*0.5)*invScale+anchorx;
+		final double womy = (omy-height*0.5)*invScale+anchory;
+		return getSelectionAreaWorld(wmx,wmy,womx,womy);
+	}
+	public ArrayList<FCObj> getSelectionAreaWorld(double wmx,double wmy,double womx,double womy){
+		FCObj dummy = new FCObj();
+		dummy.type = "Empty";
+		dummy.x = (wmx+womx)*0.5;
+		dummy.y = (wmy+womy)*0.5;
+		dummy.w = wmx-womx;
+		dummy.h = wmy-womy;
+		ArrayList<FCObj> candidates = new ArrayList<>();
+		for(FCObj obj:objDoc){
+			if(dummy.intersects(obj)){
+				candidates.add(obj);
+			}
+		}
+		return candidates;
+	}
+	
+	public void setBackupSel(){
+		backupSel.clear();
+		backupSel.addAll(objSel);
+	}
+	
+	public void restoreBackupSel(){
+		objSel.clear();
+		objSel.addAll(backupSel);
 	}
 	
 	/**
@@ -409,6 +589,16 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 		public void cancel(){
 			
 		}
+		
+		@Override
+		public void render(Graphics2D g){
+			if(mouseDown==3&&mouseDragged){
+				// What would be selected
+				g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, OVERLAY_ALPHA));
+				g.setColor(SELECTED_OVERLAY);
+				g.fillRect(lastMousex, lastMousey, lastMousex-originMousex, lastMousey-originMousey);
+			}
+		}
 
 		@Override
 		public void mouseClicked(MouseEvent e) {
@@ -420,6 +610,42 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 
 		@Override
 		public void mouseReleased(MouseEvent e) {
+			switch(mouseDown){
+			case 3:{
+				// Select
+				boolean shift = keys.get(KeyEvent.VK_SHIFT);
+				restoreBackupSel();
+				if(mouseDragged){
+					int mx = e.getX(), my = e.getY();
+					ArrayList<FCObj> candidates = getSelectionArea(mx,my);
+					if(candidates.size()>0){// Something will be selected
+						for(FCObj obj:candidates){
+							// No shift -> select all
+							// Shift -> deselect all
+							if(objSel.remove(obj)&&!shift)objSel.add(obj);
+						}
+						Main.updateTextSelectionFromObj();
+						repaint();
+					}
+				}else{
+					int mx = e.getX(), my = e.getY();
+					FCObj sel = getSelectionPoint(mx,my);
+					if(sel!=null){// Something will be selected
+						if(shift){
+							// Try to remove it, and if it wasn't removed, add it
+							if(!objSel.remove(sel))objSel.add(sel);
+						}else{
+							// Replace the current selection with the new one
+							objSel.clear();
+							objSel.add(sel);
+						}
+						Main.updateTextSelectionFromObj();
+						repaint();
+					}
+				}
+				break;
+			}
+			}
 		}
 
 		@Override
@@ -440,11 +666,43 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				panned(lastMousex-x,lastMousey-y);
 				break;
 			}
+			case 3:{
+				// Selection preview
+				restoreBackupSel();
+				boolean shift = keys.get(KeyEvent.VK_SHIFT);
+				int mx = e.getX(), my = e.getY();
+				ArrayList<FCObj> candidates = getSelectionArea(mx,my);
+				if(candidates.size()>0){// Something will be selected
+					for(FCObj obj:candidates){
+						// No shift -> select all
+						// Shift -> deselect all
+						if(objSel.remove(obj)&&!shift)objSel.add(obj);
+					}
+				}
+				repaint();
+				break;
+			}
 			}
 		}
 
 		@Override
 		public void mouseMoved(MouseEvent e) {
+			// Selection preview
+			restoreBackupSel();
+			boolean shift = keys.get(KeyEvent.VK_SHIFT);
+			int mx = e.getX(), my = e.getY();
+			FCObj sel = getSelectionPoint(mx,my);
+			if(sel!=null){// Something will be selected
+				if(shift){
+					// Try to remove it, and if it wasn't removed, add it
+					if(!objSel.remove(sel))objSel.add(sel);
+				}else{
+					// Replace the current selection with the new one
+					objSel.clear();
+					objSel.add(sel);
+				}
+			}
+			repaint();
 		}
 
 		@Override
@@ -476,6 +734,9 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 
 		@Override
 		public void keyReleased(KeyEvent e) {
+			boolean shift = keys.get(KeyEvent.VK_SHIFT);
+			boolean control = keys.get(KeyEvent.VK_CONTROL);
+			boolean alt = keys.get(KeyEvent.VK_ALT);
 			switch(e.getKeyCode()){
 			case KeyEvent.VK_0:{
 				// 0 -> center the view
@@ -489,6 +750,16 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				anchory=uanchory=ty;
 				repaint();
 				break;
+			}
+			case KeyEvent.VK_Z:{
+				if(!control&&!alt){
+					if(shift){// Toggle show grid and bounds
+						showGrid=!showGrid;
+					}else{// Toggle show wireframe
+						showWireframe=!showWireframe;
+					}
+					repaint();
+				}
 			}
 			}
 		}

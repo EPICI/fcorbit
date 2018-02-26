@@ -97,6 +97,7 @@ public class Main {
 		// Set fields and initialize
 		graphicEditor.objDoc = objDoc;
 		graphicEditor.objSel = objSel;
+		graphicEditor.setBackupSel();
 		textUndo.useHook = true;
 		textUndo.setLimit(100000);
 		textDoc.addUndoableEditListener(textUndo);
@@ -167,8 +168,8 @@ public class Main {
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				graphicEditor.mouseDown = 0;
 				graphicEditor.command.mouseReleased(e);
+				graphicEditor.mouseDown = 0;
 			}
 
 			@Override
@@ -257,11 +258,67 @@ public class Main {
 		objSel.clear();
 		parseTextTo(text,objSel,"fcml");
 		ticker++;
+		graphicEditor.setBackupSel();
 		graphicEditor.repaint();
 	}
 	
 	public static void updateTextFromObj(){
-		
+		updateTextDocumentFromObj();
+		updateTextSelectionFromObj();
+	}
+	
+	public static void updateTextDocumentFromObj(){
+		StringBuilder sb = new StringBuilder();
+		for(String line:textEditor.getText().split("\n")){
+			try{
+				// Dummy object
+				new FCObj(line,"fcml");
+			}catch(Exception e){
+				sb.append(line);
+				sb.append('\n');
+			}
+		}
+		for(FCObj obj:objDoc){
+			sb.append(obj.toString("fcml"));
+			sb.append('\n');
+		}
+		textEditor.setText(sb.toString());
+		textEditor.repaint();
+	}
+	
+	public static void updateTextSelectionFromObj(){
+		graphicEditor.setBackupSel();
+		int sn = objSel.size();
+		if(sn>0){
+			ArrayList<FCObj> sortedSel = new ArrayList<>(objSel);
+			Mapping.sort(sortedSel, (FCObj value)->objDoc.indexOf(value), Comparator.<Integer>naturalOrder());
+			int i = 0;
+			FCObj ref = sortedSel.get(i);
+			int first = 0;
+			boolean chain = false;
+			int pos = 0;
+			for(String line:textEditor.getText().split("\n")){
+				try{
+					FCObj other = new FCObj(line,"fcml");
+					if(ref.equals(other)){
+						if(!chain)first = pos;
+						chain = true;
+						i++;
+						if(i==sn){
+							textEditor.select(first, pos+line.length());
+							break;
+						}
+						ref = sortedSel.get(i);
+					}else if(chain){
+						break;
+					}
+				}catch(Exception e){
+					
+				}
+				pos += line.length()+1;
+			}
+		}
+		textEditor.repaint();
 	}
 	
 	public static void tryUndo(){

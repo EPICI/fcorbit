@@ -1,5 +1,6 @@
 package core;
 
+import java.awt.*;
 import java.awt.event.*;
 
 /**
@@ -14,5 +15,12 @@ public interface ActiveCommand extends MouseListener, MouseMotionListener, Mouse
 	 * Cancel the command
 	 */
 	public void cancel();
+	
+	/**
+	 * Render this command's overlay
+	 * 
+	 * @param g
+	 */
+	public void render(Graphics2D g);
 	
 }
