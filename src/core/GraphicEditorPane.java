@@ -597,7 +597,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				// What would be selected
 				g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, OVERLAY_ALPHA));
 				g.setColor(SELECTED_OVERLAY);
-				g.fillRect(lastMousex, lastMousey, lastMousex-originMousex, lastMousey-originMousey);
+				g.fillRect(lastMousex, lastMousey, originMousex-lastMousex, originMousey-lastMousey);
 			}
 		}
 
