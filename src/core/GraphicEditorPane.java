@@ -347,6 +347,7 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, OVERLAY_ALPHA));
 		overlays.renderTo(g);
 		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
+		command.render(g);
 	}
 	
 	public void drawJoint(Graphics2D g,double x,double y){
@@ -622,7 +623,8 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 						for(FCObj obj:candidates){
 							// No shift -> select all
 							// Shift -> deselect all
-							if(objSel.remove(obj)&&!shift)objSel.add(obj);
+							objSel.remove(obj);
+							if(!shift)objSel.add(obj);
 						}
 						Main.updateTextSelectionFromObj();
 						repaint();
@@ -676,7 +678,8 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 					for(FCObj obj:candidates){
 						// No shift -> select all
 						// Shift -> deselect all
-						if(objSel.remove(obj)&&!shift)objSel.add(obj);
+						objSel.remove(obj);
+						if(!shift)objSel.add(obj);
 					}
 				}
 				repaint();
@@ -730,6 +733,20 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 
 		@Override
 		public void keyPressed(KeyEvent e) {
+			switch(e.getKeyCode()){
+			case KeyEvent.VK_SHIFT:{
+				repaint();
+				break;
+			}
+			case KeyEvent.VK_CONTROL:{
+				repaint();
+				break;
+			}
+			case KeyEvent.VK_ALT:{
+				repaint();
+				break;
+			}
+			}
 		}
 
 		@Override
@@ -760,6 +777,18 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 					}
 					repaint();
 				}
+			}
+			case KeyEvent.VK_SHIFT:{
+				repaint();
+				break;
+			}
+			case KeyEvent.VK_CONTROL:{
+				repaint();
+				break;
+			}
+			case KeyEvent.VK_ALT:{
+				repaint();
+				break;
 			}
 			}
 		}

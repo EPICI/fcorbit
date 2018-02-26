@@ -315,6 +315,7 @@ public class FCObj {
 				}
 				sb.append(']');
 			}
+			return sb.toString();
 		}
 		default:{
 			throw new IllegalArgumentException("Unrecognized format \""+format+"\"");
