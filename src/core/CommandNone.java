@@ -3,6 +3,8 @@ package core;
 import java.util.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.*;
+
 import core.GraphicEditorPane.*;
 
 /**
@@ -27,11 +29,12 @@ public class CommandNone implements ActiveCommand{
 	
 	@Override
 	public void render(Graphics2D g){
-		if(view.mouseDown==3&&view.mouseDragged){
+		if(view.mouseDown==1&&view.mouseDragged){
 			// What would be selected
+			final int mx = view.lastMousex, my = view.lastMousey, omx = view.originMousex, omy = view.originMousey;
 			g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, GraphicEditorPane.OVERLAY_ALPHA));
 			g.setColor(GraphicEditorPane.SELECTED_OVERLAY);
-			g.fillRect(view.lastMousex, view.lastMousey, view.originMousex-view.lastMousex, view.originMousey-view.lastMousey);
+			g.fill(new Rectangle2D.Double(Math.min(mx, omx),Math.min(my, omy),Math.abs(mx-omx),Math.abs(my-omy)));
 		}
 	}
 
