@@ -34,7 +34,7 @@ public class CommandNone implements ActiveCommand{
 			final int mx = view.lastMousex, my = view.lastMousey, omx = view.originMousex, omy = view.originMousey;
 			g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, GraphicEditorPane.OVERLAY_ALPHA));
 			g.setColor(GraphicEditorPane.SELECTED_OVERLAY);
-			g.fill(new Rectangle2D.Double(Math.min(mx, omx),Math.min(my, omy),Math.abs(mx-omx),Math.abs(my-omy)));
+			g.fill(new Rectangle2D.Double(Math.min(mx, omx),Math.min(my, omy),Math.abs(mx-omx)+1,Math.abs(my-omy)+1));
 		}
 	}
 
