@@ -282,14 +282,14 @@ public class GraphicEditorPane extends JPanel implements KeyTracker {
 				}else{
 					ow = Math.max(w, iw+2);
 					oh = Math.max(h, ih+2);
-					if(isstatic&&!showWireframe){
-						ow+=1;
-						oh+=1;
-						ig.translate(0.5, 0.5);
-					}
 				}
 				ig.translate(x, y);
 				ig.rotate(Math.toRadians(r));
+				if(!isrod&&isstatic&&!showWireframe){
+					ow+=1;
+					oh+=1;
+					ig.translate(0.5, 0.5);
+				}
 				ig.setColor(colOutline);
 				if(showWireframe){
 					ig.draw(new Rectangle2D.Double(ow*-0.5, oh*-0.5, ow, oh));
